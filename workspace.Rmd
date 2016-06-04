@@ -1,0 +1,161 @@
+<h1>Data Science Capstone - 1st Milestone Report</h1>
+
+<h2>Executive Summary</h2>
+
+<br></br>
+The purpose of this document is to read in the provided data and do some exploratory  
+
+
+```{r cache = TRUE, echo = FALSE}
+#Needed <- c("tm", "SnowballCC", "RColorBrewer","ggplot2", "wordcloud", "biclust", "cluster", "igraph", "fpc")
+#install.packages(Needed, dependencies = TRUE)
+#install.packages("Rcampdf", repos = "http://datacube.wu.ac.at/", type = "source")
+```
+
+
+```{r cache = TRUE}
+library(tm)
+suppressMessages(library(R.utils))
+fp <- file.path("C:","Users","solot","Documents","coursera","Capstone","Data", "texts")
+docs <- Corpus(DirSource(fp))
+```
+
+<h2>Count the lines in the files</h2>
+
+<h3>Blogs</h3>
+
+```{r cache = TRUE}
+countLines(file.path(fp, "en_US.blogs.txt"))
+```
+
+<h3>News</h3>
+
+```{r cache = TRUE}
+countLines(file.path(fp, "en_US.news.txt"))
+```
+
+<h3>Twitter</h3>
+
+```{r cache = TRUE}
+countLines(file.path(fp, "en_US.twitter.txt"))
+```
+
+<h2> Sample the files 
+
+```{r cache = TRUE}
+set.seed(1234)
+sampath <- file.path(fp, "samples")
+rconn <- file(file.path(fp, "en_US.blogs.txt"), "r")
+file <- suppressWarnings(readLines(rconn))  
+samp <- sample(file, size = (.10 * length(file)))
+close(rconn)
+wconn <- file(file.path(sampath, "en_US.blogs.sample.txt"))
+writeLines(samp, con = wconn)
+close(wconn)
+head(samp)
+rconn <- file(file.path(fp, "en_US.news.txt"), "r")
+file <- suppressWarnings(readLines(rconn))  
+samp <- sample(file, size = (.10 * length(file)))
+close(rconn)
+wconn <- file(file.path(sampath, "en_US.news.sample.txt"))
+writeLines(samp, con = wconn)
+close(wconn)
+head(samp)
+rconn <- file(file.path(fp, "en_US.twitter.txt"), "r")
+file <- suppressWarnings(readLines(rconn))  
+samp <- sample(file, size = (.10 * length(file)))
+close(rconn)
+wconn <- file(file.path(sampath, "en_US.twitter.sample.txt"))
+writeLines(samp, con = wconn)
+close(wconn)
+head(samp)
+```
+
+<h2>Build the corpus and clean it</h2>
+
+```{r cache = TRUE}
+vc <- VCorpus(DirSource(directory = sampath))
+summary(vc)
+vc <- tm_map(vc, content_transformer(function(x) iconv(enc2utf8(x), sub = "byte")))
+vc <- tm_map(vc, removePunctuation)
+vc <- tm_map(vc, removeNumbers)
+vc <- tm_map(vc, stripWhitespace)
+vc <- tm_map(vc, tolower)
+vc <- tm_map(vc, stemDocument)
+vc <- tm_map(vc, removeWords, stopwords("english"))
+vc <- tm_map(vc, PlainTextDocument)
+```
+
+<h2>Produce the Term Document Matrix</h2>
+
+```{r cache = TRUE}
+tdm <- TermDocumentMatrix(vc)
+#summary(tdm)
+tdm <- as.matrix(tdm)
+tdm <-sort(rowSums(tdm), decreasing = TRUE)
+tdm <-data.frame(word=names(tdm), freq=tdm)
+#head(tdm)
+```
+
+<h2>Produce the Document Term Matrix</h2>
+
+```{r cache = TRUE}
+dtm <- DocumentTermMatrix(vc)
+dtm
+```
+
+<h2>Look at word frequencies</h2>
+
+```{r cache = TRUE}
+dtms <- removeSparseTerms(dtm, 0.1)
+#freq <- colSums(as.matrix(dtms))
+freq <- sort(colSums(as.matrix(dtm)), decreasing=TRUE)
+wf <- data.frame(word=names(freq), freq=freq)
+head(wf)
+```
+
+<h2>Plot the word frequencies</h2>
+
+```{r cache = TRUE}
+library(ggplot2)   
+p <- ggplot(subset(wf, freq>10000), aes(word, freq))    
+p <- p + geom_bar(stat="identity")   
+p <- p + theme(axis.text.x=element_text(angle=90, hjust=1))   
+p
+```
+
+<h3>View the Word Cloud
+
+```{r cache = TRUE}
+library(RColorBrewer)
+library(wordcloud)
+wordcloud(words = tdm$word, freq = tdm$freq, min.freq = 3000, max.words = 100, random.order = TRUE, colors = brewer.pal(6, "Dark2"), rot.per = 0.4)
+```
+
+<h2>Using RWeka to create n-gram tokens
+
+```{r cache = TRUE}
+suppressWarnings(library(rJava))
+options( java.parameters = "-Xmx4g" )
+suppressWarnings(library(RWeka))
+twoG   <- NGramTokenizer(vc, Weka_control(min=2, max=2))
+threeG <- NGramTokenizer(vc, Weka_control(min=3, max=3))
+```
+
+<h3>Bigrams
+
+```{r cache = TRUE}
+bi <- data.frame(table(twoG))
+bi <- bi[sort.list(bi$Freq, decreasing = TRUE),]
+bi <- head(bi, 10)
+bi
+```
+
+<h3>Trigrams
+
+```{r cache = TRUE}
+tri <- data.frame(table(threeG))
+tri <- tri[sort.list(tri$Freq, decreasing = TRUE),]
+tri <- head(tri, 10)
+tri
+```
