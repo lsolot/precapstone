@@ -3,7 +3,7 @@
 <h2>Executive Summary</h2>
 
 <br></br>
-The purpose of this document is to read in the provided data and do some exploratory  
+The purpose of this document is to read in the provided data and do some exploratory analysis. Utilizing tools such as the "tm" package for text mining and RWeka for creating n-grams I will move on from here to start putting together the prediction algorithm for text word patterns that the assignment requires.  
 
 
 ```{r cache = TRUE, echo = FALSE}
@@ -17,7 +17,7 @@ The purpose of this document is to read in the provided data and do some explora
 library(tm)
 suppressMessages(library(R.utils))
 fp <- file.path("C:","Users","solot","Documents","coursera","Capstone","Data", "texts")
-docs <- Corpus(DirSource(fp))
+#docs <- Corpus(DirSource(fp))
 ```
 
 <h2>Count the lines in the files</h2>
@@ -40,14 +40,16 @@ countLines(file.path(fp, "en_US.news.txt"))
 countLines(file.path(fp, "en_US.twitter.txt"))
 ```
 
-<h2> Sample the files 
+<h2>Sample the files</h2>
+While running the script, it was taking a very long time and/or encountering OOM errors even with the java parameters tweaked. So I further reduced the sample sizes written to the sample files until it ran in a reasonable amount of time.
 
 ```{r cache = TRUE}
 set.seed(1234)
 sampath <- file.path(fp, "samples")
 rconn <- file(file.path(fp, "en_US.blogs.txt"), "r")
 file <- suppressWarnings(readLines(rconn))  
-samp <- sample(file, size = (.10 * length(file)))
+samp <- sample(file, size = (.02 * length(file)))
+samp <- iconv(samp, "UTF-8", sub = "")
 close(rconn)
 wconn <- file(file.path(sampath, "en_US.blogs.sample.txt"))
 writeLines(samp, con = wconn)
@@ -55,7 +57,8 @@ close(wconn)
 head(samp)
 rconn <- file(file.path(fp, "en_US.news.txt"), "r")
 file <- suppressWarnings(readLines(rconn))  
-samp <- sample(file, size = (.10 * length(file)))
+samp <- sample(file, size = (.02 * length(file)))
+samp <- iconv(samp, "UTF-8", sub = "")
 close(rconn)
 wconn <- file(file.path(sampath, "en_US.news.sample.txt"))
 writeLines(samp, con = wconn)
@@ -63,7 +66,8 @@ close(wconn)
 head(samp)
 rconn <- file(file.path(fp, "en_US.twitter.txt"), "r")
 file <- suppressWarnings(readLines(rconn))  
-samp <- sample(file, size = (.10 * length(file)))
+samp <- sample(file, size = (.02 * length(file)))
+samp <- iconv(samp, "UTF-8", sub = "")
 close(rconn)
 wconn <- file(file.path(sampath, "en_US.twitter.sample.txt"))
 writeLines(samp, con = wconn)
@@ -73,16 +77,20 @@ head(samp)
 
 <h2>Build the corpus and clean it</h2>
 
+While thinking through the assignment, I decided not to exclude stem words and stop words as the goal is to present the user with a prediction of a likely next word based on the input.
+
 ```{r cache = TRUE}
 vc <- VCorpus(DirSource(directory = sampath))
 summary(vc)
-vc <- tm_map(vc, content_transformer(function(x) iconv(enc2utf8(x), sub = "byte")))
+#vc <- tm_map(vc, content_transformer(function(x) iconv(enc2utf8(x), sub = "byte")))
+#vc <- tm_map(vc, content_transformer(function(x) iconv(x, "UTF-8", sub = "" )))
+#vc <- tm_map(vc, content_transformer(function(x) gsub("[ãåâ]", x = x, replacement = "")))
 vc <- tm_map(vc, removePunctuation)
 vc <- tm_map(vc, removeNumbers)
 vc <- tm_map(vc, stripWhitespace)
 vc <- tm_map(vc, tolower)
-vc <- tm_map(vc, stemDocument)
-vc <- tm_map(vc, removeWords, stopwords("english"))
+#vc <- tm_map(vc, stemDocument)
+#vc <- tm_map(vc, removeWords, stopwords("english"))
 vc <- tm_map(vc, PlainTextDocument)
 ```
 
@@ -107,7 +115,7 @@ dtm
 <h2>Look at word frequencies</h2>
 
 ```{r cache = TRUE}
-dtms <- removeSparseTerms(dtm, 0.1)
+#dtms <- removeSparseTerms(dtm, 0.1)
 #freq <- colSums(as.matrix(dtms))
 freq <- sort(colSums(as.matrix(dtm)), decreasing=TRUE)
 wf <- data.frame(word=names(freq), freq=freq)
@@ -118,7 +126,7 @@ head(wf)
 
 ```{r cache = TRUE}
 library(ggplot2)   
-p <- ggplot(subset(wf, freq>10000), aes(word, freq))    
+p <- ggplot(subset(wf, freq> 2500), aes(word, freq))    
 p <- p + geom_bar(stat="identity")   
 p <- p + theme(axis.text.x=element_text(angle=90, hjust=1))   
 p
